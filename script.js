@@ -293,8 +293,7 @@
     if (event.target === imageDialog) imageDialog.close();
   });
 
-  // Update this URL after the owner's OFUSE page is ready.
-  const OFUSE_URL = "https://ofuse.me/";
+  const OFUSE_URL = "https://ofuse.me/f3a8ad6a";
   $("ofuseLink").href = OFUSE_URL;
 
   // Warn on normal page exit when work is in progress. Browsers may not show this in every case.
