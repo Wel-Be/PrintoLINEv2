@@ -110,7 +110,13 @@
     let pdf = null;
     try {
       const data = await file.arrayBuffer();
-      const loadingTask = window.pdfjsLib.getDocument({ data: new Uint8Array(data), password });
+     const loadingTask = window.pdfjsLib.getDocument({
+  data: new Uint8Array(data),
+  password,
+  cMapUrl: PDFJS_CDN + "cmaps/",
+  cMapPacked: true,
+  standardFontDataUrl: PDFJS_CDN + "standard_fonts/"
+});
       loadingTask.onPassword = (updatePassword, reason) => {
         pendingPasswordFile = file;
         passwordArea.classList.remove("hidden");
