@@ -1,4 +1,4 @@
-const CACHE_NAME = "printoline-v2-static-v4";
+const CACHE_NAME = "printoline-v2-static-v5";
 const APP_SHELL = [
   "./",
   "./index.html",

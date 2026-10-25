@@ -57,12 +57,7 @@
         <h2><span class="step">2</span> 抽出した文章</h2>
         <button id="shareText" class="button secondary" disabled>文章を共有</button>
       </div>
-      <p class="muted small">自由に編集できます。画像だけのPDFでは、下の「文字認識（OCR）」で文章を読み取れます。</p>
-      <div class="ocr-area">
-        <button id="runOcr" class="button secondary" disabled>文字認識（OCR）を実行</button>
-        <button id="cancelOcr" class="button secondary hidden">中止</button>
-      </div>
-      <p class="muted small">OCRは端末内で行います（日本語・英語）。初回は言語データの読み込みに時間がかかり、誤認識が含まれることがあります。</p>
+      <p class="muted small">自由に編集できます。文字を抽出できないPDFでは、必要な文章を入力してください。</p>
       <textarea id="extractedText" rows="9" placeholder="PDFを読み込むと、抽出した文章がここに表示されます。"></textarea>
       <div class="button-row">
         <button id="shareTextLine" class="button primary" disabled>文章をLINEで共有</button>
@@ -85,7 +80,7 @@
       <h2>ご利用にあたって</h2>
       <ul>
         <li>作成するJPEG画像の右下に、小さく「PrintoLINE」の透かし文字が入ります。
-        <li>画像だけのPDFは、文字認識（OCR）ボタンで読み取れます。精度は完全ではないため、結果を確認・編集してください。</li>
+        <li>画像だけのPDFは文字を自動抽出できません。必要な文章は手入力してください。</li>
         <li>ページ数やファイルサイズによっては、スマートフォンで処理に時間がかかることがあります。</li>
         <li>共有できる内容は、端末・ブラウザ・共有先アプリによって異なります。</li>
         <li>作業中の内容は保存されません。ページを閉じる前に必要な画像や文章を保存・共有してください。</li>

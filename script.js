@@ -17,8 +17,6 @@
   const shareTextLine = $("shareTextLine");
   const copyText = $("copyText");
   const shareImages = $("shareImages");
-  const runOcr = $("runOcr");
-  const cancelOcr = $("cancelOcr");
   const imageDialog = $("imageDialog");
   const enlargedImage = $("enlargedImage");
 
@@ -50,7 +48,6 @@
     busy = value;
     pdfFile.disabled = value;
     passwordSubmit.disabled = value;
-    runOcr.disabled = value || pageImages.length === 0;
   }
   function clearPrevious() {
     pageImages.forEach((p) => { if (p.url) URL.revokeObjectURL(p.url); });
@@ -64,7 +61,6 @@
     shareText.disabled = true;
     shareTextLine.disabled = true;
     shareImages.disabled = true;
-    runOcr.disabled = true;
     passwordArea.classList.add("hidden");
     pdfPassword.value = "";
     clearProgress();
@@ -161,14 +157,12 @@
           ctx.fillStyle = "#ffffff";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           await page.render({ canvasContext: ctx, viewport }).promise;
-          // Keep a watermark-free copy for OCR so the watermark is not read as text.
-          const ocrBlob = await new Promise((resolve) => canvas.toBlob((r) => resolve(r), "image/jpeg", 0.85));
           drawWatermark(ctx, canvas.width, canvas.height);
           const blob = await new Promise((resolve, reject) => canvas.toBlob(
             (result) => result ? resolve(result) : reject(new Error("JPEG画像を作成できませんでした")),
             "image/jpeg", 0.88
           ));
-          const imageRecord = { pageNo, blob, ocrBlob, url: URL.createObjectURL(blob), name: `${file.name.replace(/\.pdf$/i, "")}-page-${pageNo}.jpg` };
+          const imageRecord = { pageNo, blob, url: URL.createObjectURL(blob), name: `${file.name.replace(/\.pdf$/i, "")}-page-${pageNo}.jpg` };
           pageImages.push(imageRecord);
           addImageCard(imageRecord);
           canvas.width = 0;
@@ -185,7 +179,7 @@
       shareImages.disabled = pageImages.length === 0;
       setProgress(100, `完了：${pdf.numPages}ページ中、画像 ${pageImages.length} 枚を作成しました。`);
       if (!extractedText.value.trim()) {
-        setStatus("画像変換は完了しましたが、抽出できる文字が見つかりませんでした。画像だけのPDFの場合は、下の「文字認識（OCR）を実行」を押してください（手入力もできます）。", "success");
+        setStatus("画像変換は完了しましたが、抽出できる文字が見つかりませんでした。必要な文章は下の欄に手入力できます。", "success");
       } else {
         setStatus("処理が完了しました。文章を確認・編集してから共有してください。", "success");
       }
@@ -238,93 +232,6 @@
     }
   }
 
-
-  // ---- OCR (Tesseract.js, runs in the browser; loaded only when the button is pressed) ----
-  const TESSERACT_SRC = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js";
-  let ocrWorker = null;
-  let ocrCancelled = false;
-
-  function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      if (window.Tesseract) { resolve(); return; }
-      const el = document.createElement("script");
-      el.src = src;
-      el.onload = () => resolve();
-      el.onerror = () => reject(new Error("OCRライブラリを読み込めませんでした。インターネット接続を確認してください。"));
-      document.head.append(el);
-    });
-  }
-  // Japanese OCR output often has spaces between characters; remove them between Japanese characters.
-  function tidyOcrText(text) {
-    const jp = "\u3040-\u30ff\u3400-\u9fff\uff00-\uffef\u3000-\u303f";
-    const re = new RegExp("([" + jp + "])[ \t]+(?=[" + jp + "])", "g");
-    return text.replace(re, "$1").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
-  }
-
-  runOcr.addEventListener("click", async () => {
-    if (busy || !pageImages.length) return;
-    const targets = pageImages.filter((p) => p.ocrBlob);
-    if (!targets.length) { setStatus("OCRに使える画像がありません。PDFを読み込み直してください。", "error"); return; }
-    ocrCancelled = false;
-    setBusy(true);
-    cancelOcr.classList.remove("hidden");
-    setStatus("文字認識を準備しています…（初回は言語データの読み込みに時間がかかります）");
-    let currentIndex = 0;
-    const results = [];
-    try {
-      await loadScript(TESSERACT_SRC);
-      ocrWorker = await window.Tesseract.createWorker("jpn+eng", 1, {
-        logger: (m) => {
-          if (!m) return;
-          if (m.status === "recognizing text") {
-            setProgress((currentIndex + m.progress) / targets.length * 100, `文字認識中：ページ ${targets[currentIndex].pageNo}（${currentIndex + 1} / ${targets.length}）`);
-          } else if (/loading|initializ/i.test(m.status || "")) {
-            setProgress(0, "言語データを読み込み中…（初回のみ時間がかかります）");
-          }
-        }
-      });
-      for (currentIndex = 0; currentIndex < targets.length; currentIndex++) {
-        if (ocrCancelled) break;
-        const t = targets[currentIndex];
-        setProgress(currentIndex / targets.length * 100, `文字認識中：ページ ${t.pageNo}（${currentIndex + 1} / ${targets.length}）`);
-        const { data } = await ocrWorker.recognize(t.ocrBlob);
-        const text = tidyOcrText(data && data.text ? data.text : "");
-        if (text) results.push(`【${t.pageNo}ページ（OCR）】\n${text}`);
-      }
-      if (ocrCancelled) {
-        setStatus("文字認識を中止しました。", "");
-      }
-      if (results.length) {
-        const current = extractedText.value.trim();
-        extractedText.value = (current ? current + "\n\n" : "") + results.join("\n\n");
-        const hasText = !!extractedText.value.trim();
-        shareText.disabled = !hasText;
-        shareTextLine.disabled = !hasText;
-        setProgress(100, "文字認識が終わりました。");
-        if (!ocrCancelled) setStatus("文字認識が完了しました。誤認識が含まれることがあるため、文章を確認・編集してから共有してください。", "success");
-      } else if (!ocrCancelled) {
-        setProgress(100, "文字認識が終わりました。");
-        setStatus("文字を認識できませんでした。画像が不鮮明な可能性があります。必要な文章は手入力してください。", "error");
-      }
-    } catch (error) {
-      console.error("OCR error", error);
-      if (ocrCancelled) {
-        setStatus("文字認識を中止しました。", "");
-      } else {
-        setStatus("文字認識に失敗しました。通信状況を確認し、もう一度お試しください。\n詳細: " + ((error && error.message) || "不明なエラー"), "error");
-      }
-    } finally {
-      if (ocrWorker) { try { await ocrWorker.terminate(); } catch (_) {} ocrWorker = null; }
-      cancelOcr.classList.add("hidden");
-      setBusy(false);
-    }
-  });
-  cancelOcr.addEventListener("click", async () => {
-    ocrCancelled = true;
-    cancelOcr.disabled = true;
-    if (ocrWorker) { try { await ocrWorker.terminate(); } catch (_) {} }
-    cancelOcr.disabled = false;
-  });
 
   function addImageCard(record) {
     if (imagesArea.querySelector(".empty-state")) imagesArea.replaceChildren();
